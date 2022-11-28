@@ -3,9 +3,10 @@ from models import BaseVAE
 from torch import nn
 from torch.nn import functional as F
 from .types_ import *
+from .barlowtwins import BarlowTwinsLoss
+import pdb
 
-
-class VanillaVAE(BaseVAE):
+class BTVAE(BaseVAE):
 
 
     def __init__(self,
@@ -13,9 +14,11 @@ class VanillaVAE(BaseVAE):
                  latent_dim: int,
                  hidden_dims: List = None,
                  **kwargs) -> None:
-        super(VanillaVAE, self).__init__()
+        super(BTVAE, self).__init__()
 
         self.latent_dim = latent_dim
+        self.lambda_val = kwargs['lambda_val']
+        self.bt_loss = BarlowTwinsLoss()
 
         modules = []
         if hidden_dims is None:
@@ -138,11 +141,14 @@ class VanillaVAE(BaseVAE):
 
         kld_weight = kwargs['M_N'] # Account for the minibatch samples from the dataset
         recons_loss = F.mse_loss(recons, input)
-
+        
+        mu_input, log_var_input = self.encode(input)
+        mu_recon, log_var_recon = self.encode(recons)
+        bt_loss = self.bt_loss(mu_input, mu_recon) + self.bt_loss(log_var_input, log_var_recon)
 
         kld_loss = torch.mean(-0.5 * torch.sum(1 + log_var - mu ** 2 - log_var.exp(), dim = 1), dim = 0)
 
-        loss = recons_loss + kld_weight * kld_loss
+        loss = recons_loss + kld_weight * kld_loss + self.lambda_val * bt_loss
         return {'loss': loss, 'Reconstruction_Loss':recons_loss.detach(), 'KLD':-kld_loss.detach()}
 
     def sample(self,

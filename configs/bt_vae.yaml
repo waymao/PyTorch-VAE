@@ -1,7 +1,8 @@
 model_params:
-  name: 'VanillaVAE'
+  name: 'BTVAE'
   in_channels: 3
   latent_dim: 128
+  lambda_val: 0.00025
 
 
 data_params:
