@@ -9,55 +9,63 @@ import os
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 from torchvision import transforms
 import time
-from dataset import MyCelebA, VAEDataset
+from dataset import MyCelebA, VAEDataset, MyCIFAR10
 from tqdm import tqdm
+import json
+import pdb
 
 if __name__ == "__main__":
-    f = r'./configs/vae.yaml'
-    with open(f, 'r') as file:
-        try:
-            config = yaml.safe_load(file)
-        except yaml.YAMLError as exc:
-            print(exc)
-    
-    ## load model
-    model = vae_models[config['model_params']['name']](**config['model_params'])
-    model = torch.load('logs/VanillaVAE/version_4/checkpoints/last.ckpt')
-    new_model = {}
-    for key, val in model['state_dict'].items():
-        new_model[key[6:]] = val
-    model = vae_models[config['model_params']['name']](**config['model_params'])
-    model.load_state_dict(new_model)
-    model = model.cuda()
-    model.eval()
+    # f = r'./configs/bt_vae.yaml'
+    # with open(f, 'r') as file:
+    #     try:
+    #         config = yaml.safe_load(file)
+    #     except yaml.YAMLError as exc:
+    #         print(exc)
     
     ## define FID metric 
-    fid = FrechetInceptionDistance(feature=64)
+        
 
-    ## sample images 
     num_image = 500
-    sampled_images = (model.sample(num_image, 'cuda') * 255).to(torch.uint8).cpu()
-
+    
     ## load dataset
-    transforms = transforms.Compose([transforms.RandomHorizontalFlip(),
+    transform_action = transforms.Compose([transforms.RandomHorizontalFlip(),
                                             transforms.CenterCrop(148),
                                             transforms.Resize(64),
                                             transforms.ToTensor(),])
-    data = MyCelebA('Data/', split='test', transform=transforms, download=False)
-    for idx, image in tqdm(enumerate(iter(data))):
-        fid.update((image[0][None,:]*255).to(torch.uint8), real=True)
+    # data = MyCIFAR10('Data/cifar10', train='False', transform=transform_action, download=False)
+    data = MyCelebA('Data/', split='test', transform=transform_action, download=False)
+    first_num_image = torch.utils.data.Subset(data, range(num_image))
+    gt_image = torch.stack([(x[0]*255).to(torch.uint8) for x in first_num_image])
 
-        if idx == num_image:
-            break
-    # data = VAEDataset(**config["data_params"], pin_memory=len(config['trainer_params']['gpus']) != 0)
-    # dataloader = data.test_dataloader()
-    # for step, x in enumerate(dataloader):
-        # fid.update(x, real=True)
+    ## load model
+    for version in range(5):
+        model_dir = f'logs/CelebA/VanillaVAE/version_{version}'
+        with open(os.path.join(model_dir, 'config.json'), 'r') as file:
+            # load json config file 
+            config = json.load(file)
+        print('version', version, 'model_params', config['model_params'])
+        model = vae_models[config['model_params']['name']](**config['model_params'])
+        model = torch.load(os.path.join(model_dir, 'checkpoints/last.ckpt'))
+        new_model = {}
+        for key, val in model['state_dict'].items():
+            new_model[key[6:]] = val
+        model = vae_models[config['model_params']['name']](**config['model_params'])
+        model.load_state_dict(new_model)
+        model = model.cuda()
+        model.eval()
+        
+        
 
-    fid.update(sampled_images, real=False)
-    print('FID', fid.compute())
+        ## sample images 
+        fid = FrechetInceptionDistance(feature=64)
+        sampled_images = (model.sample(num_image, 'cuda') * 255).to(torch.uint8).cpu()
 
-    # vutils.save_image(a.data,
-    #                 f"sample.png",
-    #                 normalize=True,
-    #                 nrow=10)
+        
+        # vutils.save_image(gt_image[:50], f"sample.png", normalize=True, nrow=10)
+        fid.update(gt_image, real=True)
+        fid.update(sampled_images, real=False)
+        print('FID', fid.compute())
+        # vutils.save_image(a.data,
+        #                 f"sample.png",
+        #                 normalize=True,
+        #                 nrow=10)

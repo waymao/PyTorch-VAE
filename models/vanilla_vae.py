@@ -119,6 +119,7 @@ class VanillaVAE(BaseVAE):
     def forward(self, input: Tensor, **kwargs) -> List[Tensor]:
         mu, log_var = self.encode(input)
         z = self.reparameterize(mu, log_var)
+        
         return  [self.decode(z), input, mu, log_var]
 
     def loss_function(self,

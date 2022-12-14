@@ -6,7 +6,7 @@ model_params:
 
 
 data_params:
-  data_path: "Data/"
+  data_path: "Data/cifar10"
   train_batch_size: 64
   val_batch_size:  64
   patch_size: 64
@@ -25,6 +25,6 @@ trainer_params:
   max_epochs: 100
 
 logging_params:
-  save_dir: "logs/"
-  name: "VanillaVAE"
+  save_dir: "logs/cifar10"
+  name: "BTVAE"
   

@@ -7,7 +7,7 @@ from torchvision.datasets.folder import default_loader
 from pytorch_lightning import LightningDataModule
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
-from torchvision.datasets import CelebA
+from torchvision.datasets import CelebA, CIFAR10
 import zipfile
 
 
@@ -23,6 +23,17 @@ class MyDataset(Dataset):
     def __getitem__(self, idx):
         pass
 
+
+class MyCIFAR10(CIFAR10):
+    """
+    A work-around to address issues with pytorch's celebA dataset class.
+    
+    Download and Extract
+    URL : https://drive.google.com/file/d/1m8-EBPgi5MRubrm6iQjafK2QMHDBMSfJ/view?usp=sharing
+    """
+    
+    def _check_integrity(self) -> bool:
+        return True
 
 class MyCelebA(CelebA):
     """
@@ -83,7 +94,7 @@ class VAEDataset(LightningDataModule):
         data_path: str,
         train_batch_size: int = 8,
         val_batch_size: int = 8,
-        patch_size: Union[int, Sequence[int]] = (256, 256),
+        patch_size: Union[int, Sequence[int]] = (32, 32),
         num_workers: int = 0,
         pin_memory: bool = False,
         **kwargs,
@@ -146,7 +157,7 @@ class VAEDataset(LightningDataModule):
         # Replace CelebA with your dataset
         self.val_dataset = MyCelebA(
             self.data_dir,
-            split='test',
+            split='valid',
             transform=val_transforms,
             download=False,
         )
